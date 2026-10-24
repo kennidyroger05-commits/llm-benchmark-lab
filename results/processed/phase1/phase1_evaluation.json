@@ -1,0 +1,582 @@
+{
+  "evaluation_version": 1,
+  "phase": "phase1",
+  "condition": "raw",
+  "benchmark_sha256": "ac96c5324a1eb84fe84fcd1178a99e1f7448104e9abb814dff8ed621bee085b4",
+  "evaluator_sha256": {
+    "benchmark/evaluation/__init__.py": "c2dcfafc7d4f6d278c9fd915429a7d72ab915bc7dab180d02f7e53117848cd24",
+    "benchmark/evaluation/_code_worker.py": "684fafd821c235ba8ea330be327da9b23f55c4e1106bf95243511b12c004843b",
+    "benchmark/evaluation/aggregation.py": "3cffb87c0af45e796d98ee17695c8f82cfe45a05e45e71f6031763561599eb4c",
+    "benchmark/evaluation/code_evaluation.py": "fd6894a2da89fc5abe6beed0c986ffdf486f6568e5a52696d70920a3765045a0",
+    "benchmark/evaluation/parsing.py": "4fae6502821a9bf2b4435c1db4b69cc52a0a6024daf5b4a04c5c487ce01bd18e",
+    "benchmark/evaluation/task_evaluators.py": "62ad89f857f02e41e9b1be607cbd9407ea17a2a4a08373db6776a4daa9320d33",
+    "evaluate_phase1.py": "502a7c3c4544ec0ae2e53f22e6a314d52736fd70e3f70681d2c79d2d767c5c00"
+  },
+  "sources": {
+    "1b": {
+      "path": "results/raw/phase1/meta-llama-llama-3.2-1b-instruct/benchmark_20261024T171911905960Z_b762c164.json",
+      "sha256": "921ceeb5cdd8769c1bf01d9fe860751f02ff4ae4c46c8127b3f1cb5000f1f77d"
+    },
+    "3b": {
+      "path": "results/raw/phase1/meta-llama-llama-3.2-3b-instruct/benchmark_20261024T175220484215Z_dfaaf16c.json",
+      "sha256": "e43a0354646a329f5036bc55cc64fa6dcc791d1f80d5603e0c0c1e2e1bc5b1c0"
+    },
+    "8b": {
+      "path": "results/raw/phase1/meta-llama-llama-3.1-8b-instruct/benchmark_20261024T184355214219Z_6cf28ef0.json",
+      "sha256": "1bea46b702c8fe2889819a80cd471fbdd89b88b07293aadc870859481d79c7c9"
+    }
+  },
+  "summaries": {
+    "1b": {
+      "model_id": "meta-llama/Llama-3.2-1B-Instruct",
+      "total_tasks": 10,
+      "technical_success_count": 10,
+      "technical_success_rate": 1.0,
+      "strict_correct_count": 0,
+      "strict_correct_rate": 0.0,
+      "content_correct_count": 0,
+      "content_correct_rate": 0.0,
+      "format_correct_count": 0,
+      "format_correct_rate": 0.0,
+      "hit_max_new_tokens_count": 4,
+      "hit_max_new_tokens_rate": 0.4,
+      "input_tokens_total": 4227,
+      "output_tokens_total": 3312,
+      "total_tokens": 7539,
+      "inference_latency_total_seconds": 81.80659105500126,
+      "inference_latency_mean_seconds": 8.180659105500126,
+      "inference_latency_median_seconds": 9.265539363500011,
+      "observed_throughput_total": 40.48573540698247,
+      "model_load_time_seconds": 5.259546997000143,
+      "device": "cuda:0",
+      "gpu_name": "Tesla T4",
+      "vram_gb": 14.56317138671875,
+      "dtype": "float16"
+    },
+    "3b": {
+      "model_id": "meta-llama/Llama-3.2-3B-Instruct",
+      "total_tasks": 10,
+      "technical_success_count": 10,
+      "technical_success_rate": 1.0,
+      "strict_correct_count": 1,
+      "strict_correct_rate": 0.1,
+      "content_correct_count": 1,
+      "content_correct_rate": 0.1,
+      "format_correct_count": 2,
+      "format_correct_rate": 0.2,
+      "hit_max_new_tokens_count": 0,
+      "hit_max_new_tokens_rate": 0.0,
+      "input_tokens_total": 4227,
+      "output_tokens_total": 1289,
+      "total_tokens": 5516,
+      "inference_latency_total_seconds": 55.9005228940041,
+      "inference_latency_mean_seconds": 5.590052289400409,
+      "inference_latency_median_seconds": 6.29299640950012,
+      "observed_throughput_total": 23.05881829485102,
+      "model_load_time_seconds": 91.89003382499868,
+      "device": "cuda:0",
+      "gpu_name": "Tesla T4",
+      "vram_gb": 14.56317138671875,
+      "dtype": "float16"
+    },
+    "8b": {
+      "model_id": "meta-llama/Llama-3.1-8B-Instruct",
+      "total_tasks": 10,
+      "technical_success_count": 10,
+      "technical_success_rate": 1.0,
+      "strict_correct_count": 1,
+      "strict_correct_rate": 0.1,
+      "content_correct_count": 2,
+      "content_correct_rate": 0.2,
+      "format_correct_count": 2,
+      "format_correct_rate": 0.2,
+      "hit_max_new_tokens_count": 2,
+      "hit_max_new_tokens_rate": 0.2,
+      "input_tokens_total": 4227,
+      "output_tokens_total": 2684,
+      "total_tokens": 6911,
+      "inference_latency_total_seconds": 172.92577011099866,
+      "inference_latency_mean_seconds": 17.292577011099866,
+      "inference_latency_median_seconds": 14.70843013700005,
+      "observed_throughput_total": 15.5211105798585,
+      "model_load_time_seconds": 56.62342835499976,
+      "device": "cuda:0",
+      "gpu_name": "NVIDIA L4",
+      "vram_gb": 22.0343017578125,
+      "dtype": "float16"
+    }
+  },
+  "task_results": {
+    "1b": [
+      {
+        "task_id": "T1",
+        "model_id": "meta-llama/Llama-3.2-1B-Instruct",
+        "technical_success": true,
+        "strict_correct": false,
+        "format_correct": false,
+        "content_correct": false,
+        "hit_max_new_tokens": false,
+        "truncated": false,
+        "truncation_evidence": "none",
+        "failure_reasons": [
+          "invalid_json",
+          "markdown_not_allowed",
+          "wrong_type"
+        ]
+      },
+      {
+        "task_id": "T2",
+        "model_id": "meta-llama/Llama-3.2-1B-Instruct",
+        "technical_success": true,
+        "strict_correct": false,
+        "format_correct": false,
+        "content_correct": false,
+        "hit_max_new_tokens": false,
+        "truncated": false,
+        "truncation_evidence": "none",
+        "failure_reasons": [
+          "invalid_json",
+          "markdown_not_allowed",
+          "wrong_type"
+        ]
+      },
+      {
+        "task_id": "T3",
+        "model_id": "meta-llama/Llama-3.2-1B-Instruct",
+        "technical_success": true,
+        "strict_correct": false,
+        "format_correct": false,
+        "content_correct": false,
+        "hit_max_new_tokens": true,
+        "truncated": null,
+        "truncation_evidence": "token_limit_only",
+        "failure_reasons": [
+          "hit_max_new_tokens",
+          "invalid_json",
+          "markdown_not_allowed",
+          "wrong_type"
+        ]
+      },
+      {
+        "task_id": "T4",
+        "model_id": "meta-llama/Llama-3.2-1B-Instruct",
+        "technical_success": true,
+        "strict_correct": false,
+        "format_correct": false,
+        "content_correct": false,
+        "hit_max_new_tokens": true,
+        "truncated": null,
+        "truncation_evidence": "token_limit_only",
+        "failure_reasons": [
+          "hit_max_new_tokens",
+          "invalid_json",
+          "markdown_not_allowed",
+          "wrong_type"
+        ]
+      },
+      {
+        "task_id": "T5",
+        "model_id": "meta-llama/Llama-3.2-1B-Instruct",
+        "technical_success": true,
+        "strict_correct": false,
+        "format_correct": false,
+        "content_correct": false,
+        "hit_max_new_tokens": false,
+        "truncated": false,
+        "truncation_evidence": "none",
+        "failure_reasons": [
+          "extra_fields",
+          "extra_tool_call",
+          "wrong_tool_arguments"
+        ]
+      },
+      {
+        "task_id": "T6",
+        "model_id": "meta-llama/Llama-3.2-1B-Instruct",
+        "technical_success": true,
+        "strict_correct": false,
+        "format_correct": false,
+        "content_correct": false,
+        "hit_max_new_tokens": false,
+        "truncated": false,
+        "truncation_evidence": "none",
+        "failure_reasons": [
+          "extra_fields"
+        ]
+      },
+      {
+        "task_id": "T7",
+        "model_id": "meta-llama/Llama-3.2-1B-Instruct",
+        "technical_success": true,
+        "strict_correct": false,
+        "format_correct": false,
+        "content_correct": false,
+        "hit_max_new_tokens": false,
+        "truncated": false,
+        "truncation_evidence": "none",
+        "failure_reasons": [
+          "markdown_not_allowed",
+          "wrong_code_behavior"
+        ]
+      },
+      {
+        "task_id": "T8",
+        "model_id": "meta-llama/Llama-3.2-1B-Instruct",
+        "technical_success": true,
+        "strict_correct": false,
+        "format_correct": false,
+        "content_correct": false,
+        "hit_max_new_tokens": true,
+        "truncated": null,
+        "truncation_evidence": "token_limit_only",
+        "failure_reasons": [
+          "hit_max_new_tokens",
+          "invalid_python",
+          "markdown_not_allowed"
+        ]
+      },
+      {
+        "task_id": "T9",
+        "model_id": "meta-llama/Llama-3.2-1B-Instruct",
+        "technical_success": true,
+        "strict_correct": false,
+        "format_correct": false,
+        "content_correct": false,
+        "hit_max_new_tokens": true,
+        "truncated": null,
+        "truncation_evidence": "token_limit_only",
+        "failure_reasons": [
+          "hit_max_new_tokens",
+          "invalid_json",
+          "markdown_not_allowed",
+          "wrong_type"
+        ]
+      },
+      {
+        "task_id": "T10",
+        "model_id": "meta-llama/Llama-3.2-1B-Instruct",
+        "technical_success": true,
+        "strict_correct": false,
+        "format_correct": false,
+        "content_correct": false,
+        "hit_max_new_tokens": false,
+        "truncated": false,
+        "truncation_evidence": "none",
+        "failure_reasons": [
+          "wrong_line_format",
+          "wrong_value"
+        ]
+      }
+    ],
+    "3b": [
+      {
+        "task_id": "T1",
+        "model_id": "meta-llama/Llama-3.2-3B-Instruct",
+        "technical_success": true,
+        "strict_correct": false,
+        "format_correct": false,
+        "content_correct": false,
+        "hit_max_new_tokens": false,
+        "truncated": false,
+        "truncation_evidence": "none",
+        "failure_reasons": [
+          "invalid_json",
+          "markdown_not_allowed",
+          "wrong_value"
+        ]
+      },
+      {
+        "task_id": "T2",
+        "model_id": "meta-llama/Llama-3.2-3B-Instruct",
+        "technical_success": true,
+        "strict_correct": false,
+        "format_correct": false,
+        "content_correct": false,
+        "hit_max_new_tokens": false,
+        "truncated": false,
+        "truncation_evidence": "none",
+        "failure_reasons": [
+          "invalid_json",
+          "markdown_not_allowed",
+          "wrong_value"
+        ]
+      },
+      {
+        "task_id": "T3",
+        "model_id": "meta-llama/Llama-3.2-3B-Instruct",
+        "technical_success": true,
+        "strict_correct": false,
+        "format_correct": false,
+        "content_correct": false,
+        "hit_max_new_tokens": false,
+        "truncated": false,
+        "truncation_evidence": "none",
+        "failure_reasons": [
+          "invalid_json",
+          "markdown_not_allowed",
+          "wrong_value"
+        ]
+      },
+      {
+        "task_id": "T4",
+        "model_id": "meta-llama/Llama-3.2-3B-Instruct",
+        "technical_success": true,
+        "strict_correct": false,
+        "format_correct": false,
+        "content_correct": false,
+        "hit_max_new_tokens": false,
+        "truncated": false,
+        "truncation_evidence": "none",
+        "failure_reasons": [
+          "invalid_json",
+          "markdown_not_allowed",
+          "wrong_type"
+        ]
+      },
+      {
+        "task_id": "T5",
+        "model_id": "meta-llama/Llama-3.2-3B-Instruct",
+        "technical_success": true,
+        "strict_correct": false,
+        "format_correct": false,
+        "content_correct": false,
+        "hit_max_new_tokens": false,
+        "truncated": false,
+        "truncation_evidence": "none",
+        "failure_reasons": [
+          "invalid_json",
+          "wrong_type"
+        ]
+      },
+      {
+        "task_id": "T6",
+        "model_id": "meta-llama/Llama-3.2-3B-Instruct",
+        "technical_success": true,
+        "strict_correct": true,
+        "format_correct": true,
+        "content_correct": true,
+        "hit_max_new_tokens": false,
+        "truncated": false,
+        "truncation_evidence": "none",
+        "failure_reasons": []
+      },
+      {
+        "task_id": "T7",
+        "model_id": "meta-llama/Llama-3.2-3B-Instruct",
+        "technical_success": true,
+        "strict_correct": false,
+        "format_correct": false,
+        "content_correct": false,
+        "hit_max_new_tokens": false,
+        "truncated": false,
+        "truncation_evidence": "none",
+        "failure_reasons": [
+          "markdown_not_allowed",
+          "wrong_code_behavior"
+        ]
+      },
+      {
+        "task_id": "T8",
+        "model_id": "meta-llama/Llama-3.2-3B-Instruct",
+        "technical_success": true,
+        "strict_correct": false,
+        "format_correct": false,
+        "content_correct": false,
+        "hit_max_new_tokens": false,
+        "truncated": false,
+        "truncation_evidence": "none",
+        "failure_reasons": [
+          "markdown_not_allowed",
+          "wrong_code_behavior"
+        ]
+      },
+      {
+        "task_id": "T9",
+        "model_id": "meta-llama/Llama-3.2-3B-Instruct",
+        "technical_success": true,
+        "strict_correct": false,
+        "format_correct": false,
+        "content_correct": false,
+        "hit_max_new_tokens": false,
+        "truncated": false,
+        "truncation_evidence": "none",
+        "failure_reasons": [
+          "invalid_json",
+          "markdown_not_allowed",
+          "wrong_value"
+        ]
+      },
+      {
+        "task_id": "T10",
+        "model_id": "meta-llama/Llama-3.2-3B-Instruct",
+        "technical_success": true,
+        "strict_correct": false,
+        "format_correct": true,
+        "content_correct": false,
+        "hit_max_new_tokens": false,
+        "truncated": false,
+        "truncation_evidence": "none",
+        "failure_reasons": [
+          "wrong_value"
+        ]
+      }
+    ],
+    "8b": [
+      {
+        "task_id": "T1",
+        "model_id": "meta-llama/Llama-3.1-8B-Instruct",
+        "technical_success": true,
+        "strict_correct": false,
+        "format_correct": false,
+        "content_correct": false,
+        "hit_max_new_tokens": false,
+        "truncated": false,
+        "truncation_evidence": "none",
+        "failure_reasons": [
+          "invalid_json",
+          "markdown_not_allowed",
+          "wrong_type"
+        ]
+      },
+      {
+        "task_id": "T2",
+        "model_id": "meta-llama/Llama-3.1-8B-Instruct",
+        "technical_success": true,
+        "strict_correct": false,
+        "format_correct": false,
+        "content_correct": false,
+        "hit_max_new_tokens": true,
+        "truncated": null,
+        "truncation_evidence": "token_limit_only",
+        "failure_reasons": [
+          "hit_max_new_tokens",
+          "invalid_json",
+          "markdown_not_allowed",
+          "wrong_type"
+        ]
+      },
+      {
+        "task_id": "T3",
+        "model_id": "meta-llama/Llama-3.1-8B-Instruct",
+        "technical_success": true,
+        "strict_correct": false,
+        "format_correct": false,
+        "content_correct": false,
+        "hit_max_new_tokens": false,
+        "truncated": false,
+        "truncation_evidence": "none",
+        "failure_reasons": [
+          "invalid_json",
+          "markdown_not_allowed",
+          "wrong_type"
+        ]
+      },
+      {
+        "task_id": "T4",
+        "model_id": "meta-llama/Llama-3.1-8B-Instruct",
+        "technical_success": true,
+        "strict_correct": false,
+        "format_correct": false,
+        "content_correct": false,
+        "hit_max_new_tokens": true,
+        "truncated": null,
+        "truncation_evidence": "token_limit_only",
+        "failure_reasons": [
+          "hit_max_new_tokens",
+          "invalid_json",
+          "markdown_not_allowed",
+          "wrong_type"
+        ]
+      },
+      {
+        "task_id": "T5",
+        "model_id": "meta-llama/Llama-3.1-8B-Instruct",
+        "technical_success": true,
+        "strict_correct": false,
+        "format_correct": true,
+        "content_correct": false,
+        "hit_max_new_tokens": false,
+        "truncated": false,
+        "truncation_evidence": "none",
+        "failure_reasons": [
+          "extra_tool_call"
+        ]
+      },
+      {
+        "task_id": "T6",
+        "model_id": "meta-llama/Llama-3.1-8B-Instruct",
+        "technical_success": true,
+        "strict_correct": true,
+        "format_correct": true,
+        "content_correct": true,
+        "hit_max_new_tokens": false,
+        "truncated": false,
+        "truncation_evidence": "none",
+        "failure_reasons": []
+      },
+      {
+        "task_id": "T7",
+        "model_id": "meta-llama/Llama-3.1-8B-Instruct",
+        "technical_success": true,
+        "strict_correct": false,
+        "format_correct": false,
+        "content_correct": true,
+        "hit_max_new_tokens": false,
+        "truncated": false,
+        "truncation_evidence": "none",
+        "failure_reasons": [
+          "markdown_not_allowed"
+        ]
+      },
+      {
+        "task_id": "T8",
+        "model_id": "meta-llama/Llama-3.1-8B-Instruct",
+        "technical_success": true,
+        "strict_correct": false,
+        "format_correct": false,
+        "content_correct": false,
+        "hit_max_new_tokens": false,
+        "truncated": false,
+        "truncation_evidence": "none",
+        "failure_reasons": [
+          "markdown_not_allowed",
+          "wrong_code_behavior"
+        ]
+      },
+      {
+        "task_id": "T9",
+        "model_id": "meta-llama/Llama-3.1-8B-Instruct",
+        "technical_success": true,
+        "strict_correct": false,
+        "format_correct": false,
+        "content_correct": false,
+        "hit_max_new_tokens": false,
+        "truncated": false,
+        "truncation_evidence": "none",
+        "failure_reasons": [
+          "invalid_json",
+          "markdown_not_allowed",
+          "wrong_type",
+          "wrong_value"
+        ]
+      },
+      {
+        "task_id": "T10",
+        "model_id": "meta-llama/Llama-3.1-8B-Instruct",
+        "technical_success": true,
+        "strict_correct": false,
+        "format_correct": false,
+        "content_correct": false,
+        "hit_max_new_tokens": false,
+        "truncated": false,
+        "truncation_evidence": "none",
+        "failure_reasons": [
+          "wrong_line_format",
+          "wrong_value"
+        ]
+      }
+    ]
+  },
+  "truncated_policy": "null at token cap (suspected only); false otherwise (no token-cap evidence)",
+  "hardware_attempt_sha256": "5de3943b494aabc2884e71eeb53b33b87ac061be49154356ee453ff22df09950"
+}
