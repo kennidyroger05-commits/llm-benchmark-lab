@@ -1,0 +1,465 @@
+task_id,phase,condition,model_id,provider,prompt,response,status,error,max_new_tokens,temperature,do_sample,seed,input_tokens,output_tokens,total_tokens,model_load_time_seconds,inference_latency_seconds,tokens_per_second,device,gpu_name,vram_gb,dtype,timestamp
+T1,phase1,raw,meta-llama/Llama-3.2-3B-Instruct,transformers,"Um empréstimo tem saldo inicial de R$ 12.750,00 e juros mensais de 1,375%.
+Em cada um dos meses 1 a 6, nesta ordem:
+1. Calcule juros sobre o saldo ao início do mês.
+2. Arredonde SOMENTE esses juros para centavos por ROUND_HALF_UP
+   (em caso de empate, arredonde para longe de zero).
+3. Some os juros arredondados ao saldo e subtraia a prestação de R$ 2.050,00.
+4. Apenas no mês 3, subtraia ainda uma amortização extra de R$ 850,00,
+   depois da prestação. Não há outros custos nem arredondamentos.
+Retorne somente um objeto JSON com saldo_final e juros_totais, ambos
+números em reais com duas casas decimais. juros_totais é a soma dos seis
+valores de juros já arredondados. Não inclua explicação ou bloco Markdown.","```json
+{
+  ""saldo_final"": 0.00,
+  ""juros_totais"": 0.00
+}
+```",success,,512,,False,,266,29,295,91.89003382499868,1.3168289349996485,22.022602351160927,cuda:0,Tesla T4,14.56317138671875,float16,2026-10-24T17:51:25.878946+00:00
+T2,phase1,raw,meta-llama/Llama-3.2-3B-Instruct,transformers,"É necessário comprar exatamente 137 unidades de um insumo. Existem três
+tipos de pacote, disponíveis em quantidades inteiras não negativas:
+A: 12 unidades por 5890 centavos; B: 7 unidades por 3510 centavos;
+C: 1 unidade por 620 centavos. Use no máximo 8 pacotes A, pelo menos
+2 pacotes B e no máximo 6 pacotes C. Não compre unidades excedentes.
+Minimize o custo total em centavos. Se houver empate, escolha a solução
+com menos pacotes C; persistindo o empate, com menos pacotes B.
+Retorne somente JSON com as chaves pacotes_a, pacotes_b, pacotes_c,
+custo_centavos, todas inteiras. Não inclua Markdown ou explicações.","```
+{
+  ""pacotes_a"": 6,
+  ""pacotes_b"": 11,
+  ""pacotes_c"": 0,
+  ""custo_centavos"": 33570
+}
+```",success,,512,,False,,224,45,269,91.89003382499868,1.9545283790012036,23.023456954355275,cuda:0,Tesla T4,14.56317138671875,float16,2026-10-24T17:51:27.835222+00:00
+T3,phase1,raw,meta-llama/Llama-3.2-3B-Instruct,transformers,"Considere este CSV. valor_centavos e versao são inteiros. Para cada pedido,
+retenha primeiro APENAS a linha de maior versao (não há empates). Só depois
+filtre regiao=SUL, status=PAGO e valor_centavos>=10000. Agrupe por cliente,
+somando valor_centavos e contando pedidos retidos. Ordene por total_centavos
+decrescente; em empate, cliente em ordem alfabética crescente.
+Retorne somente uma lista JSON de objetos com cliente, total_centavos e
+quantidade. Não inclua explicações ou Markdown.
+
+pedido,versao,cliente,regiao,status,valor_centavos
+P01,1,Ana,SUL,PAGO,18000
+P02,1,Beto,SUL,PAGO,12000
+P03,1,Ana,SUL,PAGO,15000
+P01,2,Ana,SUL,CANCELADO,18000
+P04,1,Caio,SUL,PAGO,25000
+P02,2,Beto,SUL,PAGO,17000
+P05,1,Ana,NORTE,PAGO,40000
+P06,1,Beto,SUL,PENDENTE,8000
+P07,1,Ana,SUL,PAGO,10000
+P08,1,Caio,SUL,PAGO,9999
+P09,1,Dora,SUL,PAGO,25000
+P06,2,Beto,SUL,PAGO,8000
+P03,2,Ana,SUL,PAGO,16000
+P10,1,Beto,SUL,PAGO,9000","```json
+[
+  {
+    ""cliente"": ""Ana"",
+    ""quantidade"": 3,
+    ""total_centavos"": 59000
+  },
+  {
+    ""cliente"": ""Beto"",
+    ""quantidade"": 3,
+    ""total_centavos"": 38000
+  },
+  {
+    ""cliente"": ""Caio"",
+    ""quantidade"": 2,
+    ""total_centavos"": 49999
+  },
+  {
+    ""cliente"": ""Dora"",
+    ""quantidade"": 1,
+    ""total_centavos"": 25000
+  }
+]
+```",success,,512,,False,,390,130,520,91.89003382499868,5.518231662999824,23.558271551312387,cuda:0,Tesla T4,14.56317138671875,float16,2026-10-24T17:51:33.355541+00:00
+T4,phase1,raw,meta-llama/Llama-3.2-3B-Instruct,transformers,"Use apenas os dados JSON abaixo. Para cada produto ativo de category=""sensor"",
+    some on_hand-reserved somente em depósitos cujo enabled seja true. Todos os
+    depósitos referenciados existem e reserved nunca excede on_hand. Retenha
+    somente produtos com disponibilidade total >=6. Ordene por disponibilidade
+    decrescente e, em empate, sku crescente. Retorne somente uma lista JSON de
+    objetos com sku e available (inteiro), sem campos extras ou Markdown.
+    Dados:
+{""warehouses"": [{""id"": ""W1"", ""enabled"": true}, {""id"": ""W2"", ""enabled"": false}, {""id"": ""W3"", ""enabled"": true}], ""products"": [{""sku"": ""A1"", ""active"": true, ""category"": ""sensor"", ""stock"": [{""warehouse"": ""W1"", ""on_hand"": 9, ""reserved"": 4}, {""warehouse"": ""W2"", ""on_hand"": 100, ""reserved"": 0}, {""warehouse"": ""W3"", ""on_hand"": 5, ""reserved"": 3}]}, {""sku"": ""B2"", ""active"": true, ""category"": ""sensor"", ""stock"": [{""warehouse"": ""W1"", ""on_hand"": 3, ""reserved"": 1}, {""warehouse"": ""W3"", ""on_hand"": 7, ""reserved"": 2}]}, {""sku"": ""C3"", ""active"": false, ""category"": ""sensor"", ""stock"": [{""warehouse"": ""W1"", ""on_hand"": 30, ""reserved"": 0}]}, {""sku"": ""D4"", ""active"": true, ""category"": ""cable"", ""stock"": [{""warehouse"": ""W1"", ""on_hand"": 30, ""reserved"": 0}]}, {""sku"": ""E5"", ""active"": true, ""category"": ""sensor"", ""stock"": [{""warehouse"": ""W1"", ""on_hand"": 10, ""reserved"": 1}, {""warehouse"": ""W3"", ""on_hand"": 2, ""reserved"": 2}]}, {""sku"": ""F6"", ""active"": true, ""category"": ""sensor"", ""stock"": [{""warehouse"": ""W1"", ""on_hand"": 5, ""reserved"": 5}, {""warehouse"": ""W3"", ""on_hand"": 6, ""reserved"": 1}]}]}","```json
+[
+  {""sku"": ""F6"", ""available"": 1},
+  {""sku"": ""E5"", ""available"": 0},
+  {""sku"": ""B2"", ""available"": 2},
+  {""sku"": ""A1"", ""available"": 5}
+]
+```
+
+Aqui está a explicação do que foi feito:
+
+1. Foi filtrado apenas os produtos ativos da categoria ""sensor"".
+2. Foi filtrado apenas os depósitos que estão ativos (enabled = true).
+3. Foi verificado que a reserva não excede a quantidade em estoque (on_hand - reserved >= 0).
+4. Foi verificado que a quantidade em estoque é >= 6.
+5. Os produtos foram ordenados por disponibilidade em descer e, em caso de empate, por SKU em ordem crescente.
+6. Foi retornado apenas a lista de produtos com SKU e disponibilidade (available), sem campos extras ou Markdown.",success,,512,,False,,550,209,759,91.89003382499868,9.103891501001272,22.95721560137372,cuda:0,Tesla T4,14.56317138671875,float16,2026-10-24T17:51:42.462118+00:00
+T5,phase1,raw,meta-llama/Llama-3.2-3B-Instruct,transformers,"O usuário quer devolver as linhas L1 e L2 do pedido O17.
+Os motivos informados são damaged para L1 e changed_mind para L2.
+Política obrigatória: consulte o pedido uma vez. Se estiver entregue, não cancele.
+Para cada linha solicitada, consulte check_return em ordem crescente de line_id.
+Não reavalie a elegibilidade por conta própria. Depois de todas as consultas,
+crie uma única devolução com as linhas cujo eligible=true, em ordem crescente.
+Não chame refund_payment: a devolução ainda precisa de inspeção.
+
+Catálogo (nomes e argumentos exatos; campos extras proibidos):
+lookup_order(order_id: string) — Consultar estado e linhas de um pedido.
+check_return(line_id: string, reason: string) — Consultar elegibilidade de uma linha e motivo; retorna eligible booleano.
+create_return(order_id: string, line_ids: lista não vazia de strings únicas) — Criar uma devolução para as linhas elegíveis; retorna ok booleano.
+cancel_order(order_id: string) — Solicitar cancelamento de um pedido.
+refund_payment(order_id: string) — Solicitar estorno de um pagamento.
+
+Condição RAW: não execute ferramentas reais. Use os retornos simulados abaixo
+para produzir um plano completo, incluindo somente as chamadas necessárias.
+Cada retorno está associado à chamada exata em que seria obtido:
+[
+  {
+    ""tool"": ""lookup_order"",
+    ""arguments"": {
+      ""order_id"": ""O17""
+    },
+    ""result"": {
+      ""status"": ""delivered"",
+      ""lines"": [
+        ""L1"",
+        ""L2""
+      ]
+    }
+  },
+  {
+    ""tool"": ""check_return"",
+    ""arguments"": {
+      ""line_id"": ""L1"",
+      ""reason"": ""damaged""
+    },
+    ""result"": {
+      ""eligible"": true
+    }
+  },
+  {
+    ""tool"": ""check_return"",
+    ""arguments"": {
+      ""line_id"": ""L2"",
+      ""reason"": ""changed_mind""
+    },
+    ""result"": {
+      ""eligible"": false
+    }
+  },
+  {
+    ""tool"": ""create_return"",
+    ""arguments"": {
+      ""order_id"": ""O17"",
+      ""line_ids"": [
+        ""L1""
+      ]
+    },
+    ""result"": {
+      ""ok"": true
+    }
+  }
+]
+
+Retorne somente uma lista JSON na ordem de execução. Cada elemento deve ter
+exatamente tool (nome) e arguments (objeto de argumentos). Sem Markdown ou explicações.","[
+  {
+    ""tool"": ""lookup_order"",
+    ""arguments"": {
+      ""order_id"": ""O17""
+    }
+  },
+  {
+    ""tool"": ""check_return"",
+    ""arguments"": {
+      ""line_id"": ""L1"",
+      ""reason"": ""damaged""
+    }
+  },
+  {
+    ""tool"": ""check_return"",
+    ""arguments"": {
+      ""line_id"": ""L2"",
+      ""reason"": ""changed_mind""
+    }
+  },
+  {
+    ""tool"": ""create_return"",
+    ""arguments"": {
+      ""order_id"": ""O17"",
+      ""line_ids"": [
+        ""L1""
+      ]
+    }
+  },
+  {
+    ""tool"": ""create_return"",
+    ""arguments"": {
+      ""order_id"": ""O17"",
+      ""line_ids"": [
+        ""L2""
+      ]
+    }
+  }",success,,512,,False,,620,185,805,91.89003382499868,8.056874624000557,22.96175733564291,cuda:0,Tesla T4,14.56317138671875,float16,2026-10-24T17:51:50.522191+00:00
+T6,phase1,raw,meta-llama/Llama-3.2-3B-Instruct,transformers,"Processe a compra de 3 unidades de SKU7 para o pedido O42 por 4200 centavos.
+Regras: primeiro consulte estoque; só reserve se available>=quantity.
+Só cobre depois da reserva bem-sucedida. Se a cobrança falhar, libere a
+reserva e depois registre a falha usando o error retornado como reason.
+Não repita a cobrança. Em caso de falha, não emita nota nem recibo.
+
+Catálogo (nomes e argumentos exatos; campos extras proibidos):
+get_stock(sku: string) — Consultar unidades disponíveis de um SKU; retorna available inteiro.
+reserve_stock(order_id: string, sku: string, quantity: inteiro positivo) — Reservar unidades para um pedido; retorna ok e reservation_id quando bem-sucedida.
+charge(order_id: string, amount_centavos: inteiro positivo) — Cobrar um pedido em centavos; retorna ok e error em caso de falha.
+release_stock(reservation_id: string) — Liberar uma reserva pelo identificador recebido; retorna ok.
+log_failure(order_id: string, reason: string) — Registrar uma falha com o motivo recebido; retorna ok.
+issue_invoice(order_id: string) — Emitir uma nota para um pedido.
+send_receipt(order_id: string) — Enviar um recibo para um pedido.
+
+Condição RAW: não execute ferramentas reais. Use os retornos simulados abaixo
+para produzir um plano completo, incluindo somente as chamadas necessárias.
+Cada retorno está associado à chamada exata em que seria obtido:
+[
+  {
+    ""tool"": ""get_stock"",
+    ""arguments"": {
+      ""sku"": ""SKU7""
+    },
+    ""result"": {
+      ""available"": 5
+    }
+  },
+  {
+    ""tool"": ""reserve_stock"",
+    ""arguments"": {
+      ""order_id"": ""O42"",
+      ""sku"": ""SKU7"",
+      ""quantity"": 3
+    },
+    ""result"": {
+      ""ok"": true,
+      ""reservation_id"": ""R9""
+    }
+  },
+  {
+    ""tool"": ""charge"",
+    ""arguments"": {
+      ""order_id"": ""O42"",
+      ""amount_centavos"": 4200
+    },
+    ""result"": {
+      ""ok"": false,
+      ""error"": ""payment_declined""
+    }
+  },
+  {
+    ""tool"": ""release_stock"",
+    ""arguments"": {
+      ""reservation_id"": ""R9""
+    },
+    ""result"": {
+      ""ok"": true
+    }
+  },
+  {
+    ""tool"": ""log_failure"",
+    ""arguments"": {
+      ""order_id"": ""O42"",
+      ""reason"": ""payment_declined""
+    },
+    ""result"": {
+      ""ok"": true
+    }
+  }
+]
+
+Retorne somente uma lista JSON na ordem de execução. Cada elemento deve ter
+exatamente tool (nome) e arguments (objeto de argumentos). Sem Markdown ou explicações.","[
+  {
+    ""tool"": ""get_stock"",
+    ""arguments"": {
+      ""sku"": ""SKU7""
+    }
+  },
+  {
+    ""tool"": ""reserve_stock"",
+    ""arguments"": {
+      ""order_id"": ""O42"",
+      ""sku"": ""SKU7"",
+      ""quantity"": 3
+    }
+  },
+  {
+    ""tool"": ""charge"",
+    ""arguments"": {
+      ""order_id"": ""O42"",
+      ""amount_centavos"": 4200
+    }
+  },
+  {
+    ""tool"": ""release_stock"",
+    ""arguments"": {
+      ""reservation_id"": ""R9""
+    }
+  },
+  {
+    ""tool"": ""log_failure"",
+    ""arguments"": {
+      ""order_id"": ""O42"",
+      ""reason"": ""payment_declined""
+    }
+  }
+]",success,,512,,False,,695,176,871,91.89003382499868,7.783683470001051,22.611402516343105,cuda:0,Tesla T4,14.56317138671875,float16,2026-10-24T17:51:58.309191+00:00
+T7,phase1,raw,meta-llama/Llama-3.2-3B-Instruct,transformers,"Escreva em Python 3.9+, usando apenas a biblioteca padrão, a função
+reconcile(events). events é uma lista de dicionários com id (string), seq
+(inteiro não negativo), status (""settled"" ou ""void"") e amount_centavos
+(inteiro, inclusive negativo ou zero). Todos os dados são válidos; para
+cada id, seq não se repete. A lista pode estar fora de ordem ou vazia.
+Para cada id, retenha primeiro o evento de maior seq. Depois selecione
+apenas os eventos retidos com status=""settled"". Retorne um dicionário
+com net_centavos (soma de amount_centavos desses eventos) e ids (lista
+dos respectivos ids ordenada lexicograficamente). Um evento settled com
+valor zero deve aparecer em ids. Para entrada vazia, retorne soma zero
+e ids vazio. Não altere a lista recebida nem seus dicionários.
+Não leia arquivos, rede ou stdin e não imprima. Retorne somente código
+Python, sem Markdown, que defina a função; imports padrão são permitidos.","```python
+def reconcile(events):
+    if not events:
+        return {'net_centavos': 0, 'ids': []}
+
+    # Retirar eventos com status ""void"" e ordenar eventos por id e seq
+    events = [(id_, seq, status, amount) for id_, seq, status, amount in events 
+              if status == ""settled""]
+    events.sort(key=lambda x: (x[0], x[1]))
+
+    # Retirar eventos com seq menor que o anterior para cada id
+    events = [(id_, seq, status, amount) for id_, seq, status, amount in events 
+              if not events or (id_, seq) != events[-1][:2]]
+
+    # Calcular a soma de amount_centavos e ordenar ids
+    result = {'net_centavos': sum(amount for _, _, _, amount in events), 
+              'ids': sorted(event[0] for event in events)}
+    return result
+```",success,,512,,False,,291,207,498,91.89003382499868,8.839252447000035,23.41826995452019,cuda:0,Tesla T4,14.56317138671875,float16,2026-10-24T17:52:07.150359+00:00
+T8,phase1,raw,meta-llama/Llama-3.2-3B-Instruct,transformers,"Implemente expand_ranges(text) em Python 3.9+, só com biblioteca padrão.
+text é uma string de tokens separados por vírgula. Remova espaços em branco
+das extremidades de cada token. Um token válido é um inteiro decimal ASCII
+com sinal ""-"" opcional, ou dois desses inteiros separados exatamente por
+"".."", sem espaços internos. O sinal ""+"" não é permitido. Zeros iniciais
+são permitidos. Intervalos incluem os dois extremos e podem ser crescentes
+ou decrescentes. Expanda na ordem dos tokens; remova repetições preservando
+somente a primeira aparição de cada inteiro. Exemplo:
+""3..1, 2, -2..0, 3"" -> [3, 2, 1, -2, -1, 0].
+Entrada vazia ou contendo só espaços retorna []. Qualquer token inválido,
+inclusive token vazio entre vírgulas, causa ValueError (mensagem livre).
+Em entradas válidas há no máximo 1000 números antes de remover repetições.
+Retorne somente código que defina a função, sem Markdown, leitura de
+arquivos/rede/stdin ou prints. Imports padrão são permitidos.","```python
+def expand_ranges(text):
+    tokens = text.replace("" "", """").split("","")
+    result = []
+    for token in tokens:
+        if not token:
+            raise ValueError(""Token vazio"")
+        if "".."" in token:
+            start, end = map(int, token.split(""..""))
+            if start > end:
+                start, end = end, start
+            result.extend(range(start, end + 1))
+        else:
+            result.append(int(token))
+    return list(set(result))
+```",success,,512,,False,,316,103,419,91.89003382499868,4.4724915380011225,23.029669061382616,cuda:0,Tesla T4,14.56317138671875,float16,2026-10-24T17:52:11.624841+00:00
+T9,phase1,raw,meta-llama/Llama-3.2-3B-Instruct,transformers,"Converta as notas abaixo em um único objeto JSON. Use somente os campos
+decision_ids, actions e blockers; não escreva texto fora do JSON.
+Vocabulário fechado:
+decisões D1=colecao_unica, D2=planilha_externa;
+tarefas A1=preparar_dados, A2=revisar_dados, A3=publicar_piloto;
+bloqueio B1=token_ausente; pessoas Ana, Bruno, Carla.
+Regras: inclua apenas decisões confirmadas e ações não canceladas. A última
+revisão explícita de responsável ou prazo substitui a anterior. Ordene IDs
+em ordem crescente. actions é uma lista de objetos com exatamente id,
+owner, due_day (inteiro relativo ao dia zero) e depends_on (lista de IDs).
+blockers é uma lista de objetos com exatamente id, owner, blocks (lista
+de IDs). Listas internas também devem estar em ordem crescente.
+Notas, em ordem cronológica:
+- D1 foi confirmada. D2 foi proposta, mas rejeitada.
+- A1 foi atribuída a Ana para o dia 3, sem dependências.
+- A2 foi atribuída a Bruno para o dia 5, dependendo somente de A1.
+- A3 foi atribuída a Carla para o dia 6, dependendo somente de A2.
+- O prazo de A1 mudou para o dia 4; Ana continua responsável.
+- B1 está aberto, Carla é responsável; ele bloqueia somente A3.
+- A2 foi transferida para Carla, mantendo prazo e dependências.
+- A3 foi cancelada. B1 continua aberto, mas referências a ações canceladas
+  devem ser removidas de blocks; não exclua um bloqueio aberto por ficar vazio.","```json
+{
+  ""decision_ids"": [""D1""],
+  ""actions"": [
+    {
+      ""id"": ""A1"",
+      ""owner"": ""Ana"",
+      ""due_day"": 4,
+      ""depends_on"": []
+    },
+    {
+      ""id"": ""A2"",
+      ""owner"": ""Carla"",
+      ""due_day"": 5,
+      ""depends_on"": [""A1""]
+    },
+    {
+      ""id"": ""A3"",
+      ""owner"": ""Carla"",
+      ""due_day"": 6,
+      ""depends_on"": [""A2""]
+    }
+  ],
+  ""blockers"": [
+    {
+      ""id"": ""B1"",
+      ""owner"": ""Carla"",
+      ""blocks"": [""A3""]
+    }
+  ]
+}
+```",success,,512,,False,,456,166,622,91.89003382499868,7.067761156000415,23.486928368974194,cuda:0,Tesla T4,14.56317138671875,float16,2026-10-24T17:52:18.694893+00:00
+T10,phase1,raw,meta-llama/Llama-3.2-3B-Instruct,transformers,"Gere um boletim com exatamente oito linhas, sem Markdown, linhas vazias ou
+espaços no início/fim. Use apenas os registros e regras abaixo.
+Há quatro serviços: auth, billing, search, storage. Cada registro substitui
+integralmente o estado anterior do mesmo serviço; use o maior número de
+revisão. Severidades possíveis: critical, high, low, none. Apenas status=open
+é incidente ativo. Para incidentes ativos, prioridade: critical antes de
+high antes de low; em empate, serviço em ordem alfabética. Não inclua
+resolved nem false_alarm na lista de ativos.
+Registros (serviço; revisão; status; severidade):
+auth;1;open;critical
+billing;1;open;low
+storage;1;open;high
+search;1;open;high
+auth;2;resolved;none
+billing;3;open;high
+search;2;false_alarm;none
+storage;2;open;high
+billing;2;open;critical
+Formato exato de cada linha (substitua os valores entre <>):
+STATUS=<ALERT se houver algum ativo, senão OK>
+ACTIVE=<quantidade inteira de incidentes ativos>
+CRITICAL=<quantidade inteira de ativos critical>
+HIGH=<quantidade inteira de ativos high>
+LOW=<quantidade inteira de ativos low>
+SERVICES=<serviços ativos na ordem de prioridade, separados por vírgula sem espaços; ou none>
+FIRST=<primeiro serviço de SERVICES; ou none>
+ACTION=<ESCALATE se houver critical ou high ativo; senão MONITOR se houver low ativo; senão NONE>","STATUS=OK
+ACTIVE=0
+CRITICAL=1
+HIGH=1
+LOW=0
+SERVICES=auth,billing,search
+FIRST=auth
+ACTION=MONITOR",success,,512,,False,,419,39,458,91.89003382499868,1.7869791809989692,21.824540775118574,cuda:0,Tesla T4,14.56317138671875,float16,2026-10-24T17:52:20.484121+00:00
