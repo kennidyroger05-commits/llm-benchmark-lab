@@ -1,12 +1,17 @@
 """Prepare and run the official RAW Phase 1 benchmark in Google Colab."""
 
+import argparse
 from pathlib import Path
 
 from benchmark.exporter import export_results
 from benchmark.runner import BenchmarkRunner
 
 
-MODEL_ID = "meta-llama/Llama-3.2-1B-Instruct"
+MODEL_IDS = {
+    "1b": "meta-llama/Llama-3.2-1B-Instruct",
+    "3b": "meta-llama/Llama-3.2-3B-Instruct",
+    "8b": "meta-llama/Llama-3.1-8B-Instruct",
+}
 PHASE = "phase1"
 CONDITION = "raw"
 GENERATION_OPTIONS = {
@@ -22,22 +27,27 @@ WARMUP_PROMPTS = (
 
 
 def run_phase1_colab(
+    model: str = "1b",
     provider=None,
     runner_factory=BenchmarkRunner,
     exporter=export_results,
     results_root=Path("results"),
     torch_module=None,
 ):
-    """Load the 1B model, discard two warm-ups, run V1, and export the results."""
+    """Load a selected official model, warm it up, run V1, and export results."""
+    if model not in MODEL_IDS:
+        raise ValueError(f"Alias de modelo inválido: {model}. Escolha um de: 1b, 3b, 8b.")
+    model_id = MODEL_IDS[model]
+
     if torch_module is None:
         import torch as torch_module
 
     if provider is None:
         from benchmark.providers.transformers_provider import TransformersProvider
 
-        # Construct the provider explicitly for the approved 1B Colab configuration.
+        # Keep dtype and device placement identical across all official model sizes.
         provider = TransformersProvider(
-            model_id=MODEL_ID,
+            model_id=model_id,
             torch_dtype=torch_module.float16,
             device_map="auto",
         )
@@ -60,14 +70,14 @@ def run_phase1_colab(
     # Create and start the official runner only after both warm-ups and synchronization.
     runner = runner_factory(
         provider=provider,
-        model_id=MODEL_ID,
+        model_id=model_id,
         phase=PHASE,
         condition=CONDITION,
     )
     results = runner.run(**GENERATION_OPTIONS)
     json_path, csv_path = exporter(
         results,
-        model_id=MODEL_ID,
+        model_id=model_id,
         phase=PHASE,
         condition=CONDITION,
         results_root=results_root,
@@ -75,7 +85,7 @@ def run_phase1_colab(
 
     success_count = sum(result.status == "success" for result in results)
     error_count = sum(result.status == "error" for result in results)
-    print(f"Modelo: {MODEL_ID}")
+    print(f"Modelo: {model_id}")
     print(f"Dispositivo: {provider.hardware.get('device') or 'n/d'}")
     print(f"GPU: {provider.hardware.get('gpu_name') or 'n/d'}")
     vram = provider.hardware.get("vram_gb")
@@ -92,4 +102,7 @@ def run_phase1_colab(
 
 
 if __name__ == "__main__":
-    run_phase1_colab()
+    parser = argparse.ArgumentParser(description="Executa a Fase 1 RAW do benchmark oficial.")
+    parser.add_argument("--model", required=True, choices=tuple(MODEL_IDS), help="Alias oficial: 1b, 3b ou 8b")
+    arguments = parser.parse_args()
+    run_phase1_colab(model=arguments.model)

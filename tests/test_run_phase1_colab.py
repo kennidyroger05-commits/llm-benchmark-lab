@@ -9,7 +9,7 @@ from benchmark.results import BenchmarkResult
 from run_phase1_colab import (
     CONDITION,
     GENERATION_OPTIONS,
-    MODEL_ID,
+    MODEL_IDS,
     PHASE,
     WARMUP_PROMPTS,
     run_phase1_colab,
@@ -59,7 +59,7 @@ class FakeRunner:
 
 
 class Phase1ColabTests(unittest.TestCase):
-    def run_with_device(self, device):
+    def run_with_device(self, device, model="1b"):
         events = []
         provider = FakeProvider(events, device=device)
 
@@ -69,7 +69,7 @@ class Phase1ColabTests(unittest.TestCase):
         def exporter(results, **kwargs):
             events.append("exported")
             self.assertEqual(results, fake_runner.results)
-            self.assertEqual(kwargs["model_id"], MODEL_ID)
+            self.assertEqual(kwargs["model_id"], MODEL_IDS[model])
             self.assertEqual(kwargs["phase"], "phase1")
             self.assertEqual(kwargs["condition"], "raw")
             return Path("mock/results.json"), Path("mock/results.csv")
@@ -92,6 +92,7 @@ class Phase1ColabTests(unittest.TestCase):
 
         result = run_phase1_colab(
             provider=provider,
+            model=model,
             runner_factory=capturing_runner_factory,
             exporter=exporter,
             torch_module=torch_stub,
@@ -104,7 +105,7 @@ class Phase1ColabTests(unittest.TestCase):
         (results, json_path, csv_path), provider, events, sync, runner = self.run_with_device("cuda:0")
 
         self.assertEqual(len(WARMUP_PROMPTS), 2)
-        self.assertEqual(MODEL_ID, "meta-llama/Llama-3.2-1B-Instruct")
+        self.assertEqual(MODEL_IDS["1b"], "meta-llama/Llama-3.2-1B-Instruct")
         self.assertEqual(GENERATION_OPTIONS, {
             "max_new_tokens": 512,
             "do_sample": False,
@@ -121,7 +122,7 @@ class Phase1ColabTests(unittest.TestCase):
         self.assertLess(events.index("task_9"), events.index("exported"))
         self.assertEqual(sync.call_count, 1)
         self.assertEqual(runner.context, {
-            "model_id": MODEL_ID,
+            "model_id": MODEL_IDS["1b"],
             "phase": PHASE,
             "condition": CONDITION,
         })
@@ -136,6 +137,24 @@ class Phase1ColabTests(unittest.TestCase):
         sync.assert_not_called()
         self.assertLess(events.index("generate_1"), events.index("runner_created"))
         self.assertNotIn("sync_cpu", events)
+
+    def test_all_official_aliases_use_the_same_protocol_and_model_id(self):
+        for alias, expected_model_id in MODEL_IDS.items():
+            with self.subTest(alias=alias):
+                (results, _, _), provider, _, _, runner = self.run_with_device("cpu", model=alias)
+                self.assertEqual(runner.context["model_id"], expected_model_id)
+                self.assertEqual(runner.options, GENERATION_OPTIONS)
+                self.assertEqual(provider.calls, [(prompt, GENERATION_OPTIONS) for prompt in WARMUP_PROMPTS])
+                self.assertEqual(len(results), 10)
+
+    def test_invalid_alias_is_rejected_before_loading_or_running(self):
+        events = []
+        provider = FakeProvider(events, device="cpu")
+
+        with self.assertRaisesRegex(ValueError, "Alias de modelo inválido.*1b, 3b, 8b"):
+            run_phase1_colab(model="70b", provider=provider, torch_module=SimpleNamespace())
+
+        self.assertEqual(events, [])
 
 
 if __name__ == "__main__":
