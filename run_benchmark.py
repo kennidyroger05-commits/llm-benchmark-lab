@@ -1,12 +1,13 @@
 """Check the Groq API connection without running a benchmark."""
 
-from benchmark.groq_client import list_available_models
+from benchmark.providers.groq_provider import GroqProvider
 
 
 def main():
     """Print whether Groq is reachable and list the available model IDs."""
     try:
-        model_ids = list_available_models()
+        # Keep this entry point focused on connection validation for now.
+        model_ids = GroqProvider().get_available_models()
     except (ValueError, RuntimeError) as error:
         print(error)
         return 1
