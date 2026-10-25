@@ -1,0 +1,6 @@
+# Prescribed Phase 2 toolchain; actual runtime versions are recorded in each manifest.
+torch==2.6.0
+transformers==4.56.2
+accelerate==1.10.1
+huggingface-hub==0.36.0
+tokenizers==0.22.1
