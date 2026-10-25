@@ -81,7 +81,13 @@ class Model:
 def torch_stub(cuda=False):
     return SimpleNamespace(
         float16='float16', device=device, no_grad=nullcontext, manual_seed=Mock(),
+        nn=SimpleNamespace(attention=SimpleNamespace(
+            SDPBackend=SimpleNamespace(EFFICIENT_ATTENTION='efficient', FLASH_ATTENTION='flash'),
+            sdpa_kernel=Mock(side_effect=lambda backends: nullcontext()))),
         cuda=SimpleNamespace(is_available=lambda: cuda, synchronize=Mock(),
+            mem_get_info=Mock(return_value=(3 * 1024**3, 12 * 1024**3)),
+            reset_peak_memory_stats=Mock(), max_memory_allocated=Mock(return_value=5 * 1024**3),
+            max_memory_reserved=Mock(return_value=6 * 1024**3),
             current_device=lambda: 0, get_device_name=Mock(side_effect=lambda i: 'Fake GPU ' + str(i)),
             get_device_properties=Mock(return_value=SimpleNamespace(total_memory=12 * 1024**3))))
 
@@ -127,7 +133,8 @@ class ProviderTests(unittest.TestCase):
         hf = SimpleNamespace(AutoTokenizer=SimpleNamespace(from_pretrained=tokenizer_loader),
                              AutoModelForCausalLM=SimpleNamespace(from_pretrained=model_loader))
         adapter = TransformersEpisodeProvider(OFFICIAL_MODELS[0])
-        with patch.dict('sys.modules', {'transformers': hf}):
+        with patch.dict('sys.modules', {'transformers': hf}), \
+             patch('benchmark.providers.transformers_phase2.configure_memory_attention'):
             self.assertIs(adapter.load_tokenizer(), tokenizer)
             self.assertIs(adapter.load_model(), model)
         tokenizer_loader.assert_called_once_with(OFFICIAL_MODELS[0])

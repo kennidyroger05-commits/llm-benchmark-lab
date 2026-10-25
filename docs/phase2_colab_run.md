@@ -56,3 +56,25 @@ para um diretório novo/vazio: a checagem normal de conflitos continua bloqueant
 Esse diretório serve somente às checagens de escrita/conflito do preflight.
 O smoke não substitui a autorização de coleta nem altera os dois warm-ups
 obrigatórios do run oficial. Não execute esse modo durante verificações sem modelo.
+
+### Smoke sintético de contexto grande
+
+```bash
+python run_phase2.py --mode provider-context-smoke --model meta-llama/Llama-3.2-1B-Instruct --output-root /tmp/phase2-context-smoke
+```
+
+Após o mesmo preflight/carregamento, esse diagnóstico usa contagem real do
+tokenizer para construir ~8700 tokens sintéticos e gera no máximo 8 tokens,
+sem acessar tarefas ou produzir resultados oficiais. O alvo pode ser ajustado
+com `--context-smoke-input-tokens`, até 15872; não há truncagem nem estimativa
+por caracteres. O JSON registra memória CUDA em bytes, latência, configuração
+de atenção/cache e detalhes sanitizados de falha. O limite oficial continua 512
+tokens de geração, com os mesmos prompts, catálogo e contexto de 16384.
+
+Phase 2 usa o alias `phase2_sdpa_expanded_kv`: SDPA com expansão explícita K/V,
+sem GQA nativo e sem fallback matemático em CUDA. A máscara original SDPA é
+preservada; nenhum parâmetro de cache, dtype ou placement é trocado. Se efficient/
+Flash não operar no ambiente, o diagnóstico falha sem contornar o bloqueio.
+Consulte `reports/phase2/hardware/context_oom_attempts.md` para as tentativas
+inválidas anteriores, evidências e limites desta investigação. Execute o smoke
+com modelo real somente em etapa autorizada de diagnóstico/coleta.

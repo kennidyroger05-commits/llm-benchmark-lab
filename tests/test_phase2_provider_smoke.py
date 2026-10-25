@@ -72,7 +72,8 @@ class ProviderSmokeTests(unittest.TestCase):
                    'transformers': SimpleNamespace(
                        AutoTokenizer=SimpleNamespace(from_pretrained=token_loader),
                        AutoModelForCausalLM=SimpleNamespace(from_pretrained=model_loader))}
-        with patch.dict('sys.modules', modules):
+        with patch.dict('sys.modules', modules), \
+             patch('benchmark.providers.transformers_phase2.configure_memory_attention'):
             result = run_provider_smoke(MODEL, preflight_fn=Mock(return_value=passing_preflight()))
         self.assertEqual(result['status'], 'PASS')
         snapshot.assert_called_once_with(MODEL, revision='synthetic-revision', allow_patterns=[

@@ -15,6 +15,9 @@ from types import MappingProxyType, SimpleNamespace
 
 from .transformers_provider import TransformersProvider
 from .failure_diagnostics import failure_details
+from .phase2_memory import (configure_memory_attention, efficient_cuda_kernels,
+                            cuda_memory_observation, execution_metadata, observe_forward)
+from benchmark.orchestration.context_diagnostics import context_sizes
 
 OFFICIAL_MODELS = (
     'meta-llama/Llama-3.2-1B-Instruct',
@@ -46,6 +49,7 @@ class ContextCheck:
     input_token_limit: int
     context_limit: bool
     declared_capacity: int
+    context_components: dict | None = None
 
 
 @dataclass(frozen=True)
@@ -61,6 +65,9 @@ class TurnMetrics:
     status: str
     error_code: str | None = None
     failure: dict | None = None
+    cuda_memory: dict | None = None
+    max_new_tokens: int = 512
+    execution: dict | None = None
 
 
 class _PreparedTensor:
@@ -128,9 +135,10 @@ class _ExecutionModel:
     CUDA. This proxy changes neither weights nor hooks, and never guesses a CPU
     fallback. The real model still performs generation and device-map dispatch.
     """
-    def __init__(self, model, device, observe):
+    def __init__(self, model, device, observe, evidence):
         self.raw, self.device = model, device
         self.observe = observe
+        self.evidence = evidence
 
     def get_input_embeddings(self):
         weight = self.raw.get_input_embeddings().weight
@@ -138,7 +146,8 @@ class _ExecutionModel:
 
     def generate(self, **options):
         try:
-            return self.raw.generate(**options)
+            with observe_forward(self.raw, self.evidence), efficient_cuda_kernels(self.device):
+                return self.raw.generate(**options)
         except Exception as error:
             # The unchanged Phase 1 core returns only str(error). Preserve its
             # type and stage here, before that conversion, without retrying.
@@ -164,6 +173,8 @@ class TransformersEpisodeProvider:
         self._generation_failure = None
         self.deadline = None
         self.warmup_completed = False
+        self.attention_implementation_before = None
+        self._execution_evidence = {}
 
     def load_tokenizer(self):
         try:
@@ -180,7 +191,9 @@ class TransformersEpisodeProvider:
         # Exactly the Phase 1 loader, dtype/device_map and load-time measurement.
         self._core.torch_dtype = torch.float16
         try:
-            return self._core.load_model()
+            model = self._core.load_model()
+            self.attention_implementation_before = configure_memory_attention(model)
+            return model
         except Exception as error:
             raise EpisodeProviderError('model_load_failure',
                 diagnostic=failure_details(error, stage='model_load')) from None
@@ -230,7 +243,8 @@ class TransformersEpisodeProvider:
             if type(count) is not int or count < 0:
                 raise EpisodeProviderError('invalid_token_count', 'preflight')
             check = ContextCheck(len(self.turn_metrics) + 1, document, tokenizer.text, count,
-                                 INPUT_TOKEN_LIMIT, count > INPUT_TOKEN_LIMIT, capacity)
+                                 INPUT_TOKEN_LIMIT, count > INPUT_TOKEN_LIMIT, capacity,
+                                 context_sizes(document))
             # callback consumes the preflight cache, without counting a second turn.
             if not self.context_checks or self.context_checks[-1] != check:
                 self.context_checks.append(check)
@@ -272,7 +286,7 @@ class TransformersEpisodeProvider:
     @contextmanager
     def _execution_model(self):
         original = self._core.model
-        self._core.model = _ExecutionModel(original, self._input_device(), self._observe_failure)
+        self._core.model = _ExecutionModel(original, self._input_device(), self._observe_failure, self._execution_evidence)
         try:
             yield
         finally:
@@ -280,7 +294,18 @@ class TransformersEpisodeProvider:
 
     def __call__(self, document):
         """Callback compatible with run_episode; never parses or repairs output."""
+        return self._generate(document, GENERATION_OPTIONS['max_new_tokens'])
+
+    def generate_diagnostic(self, document, *, max_new_tokens=8):
+        """Non-benchmark entry: same generation, smaller explicit output budget."""
+        if type(max_new_tokens) is not int or not 1 <= max_new_tokens <= 8:
+            raise ValueError('Diagnostic output budget must be between 1 and 8 tokens.')
+        return self._generate(document, max_new_tokens)
+
+    def _generate(self, document, max_new_tokens):
         self._generation_failure = None
+        self._execution_evidence = {}
+        memory = None
         try:
             count = self.count_tokens(document)
             if count > INPUT_TOKEN_LIMIT:
@@ -289,7 +314,8 @@ class TransformersEpisodeProvider:
             with self._execution_model():
                 # Reuse Phase 1 hardware collection, timing, sync, suffix and decode.
                 self._core.hardware = self._core._collect_hardware_metadata()
-                result = self._core.generate(document, **GENERATION_OPTIONS)
+                with cuda_memory_observation(self._core.model.device) as memory:
+                    result = self._core.generate(document, **{**GENERATION_OPTIONS, 'max_new_tokens': max_new_tokens})
             if result.status != 'success':
                 diagnostic = self._generation_failure
                 if diagnostic is None:
@@ -302,8 +328,9 @@ class TransformersEpisodeProvider:
             # A future runner must not dispatch actions after an expired generation.
             self._check_deadline('generation')
             metric = TurnMetrics(len(self.turn_metrics) + 1, count, result.output_tokens,
-                                 result.inference_latency_seconds, result.output_tokens == 512,
-                                 result.response, result.device, result.dtype, 'success')
+                                 result.inference_latency_seconds, result.output_tokens == max_new_tokens,
+                                 result.response, result.device, result.dtype, 'success',
+                                 cuda_memory=memory, max_new_tokens=max_new_tokens, execution=self._execution_evidence)
         except EpisodeProviderError as error:
             self.last_failure = error
             # Context/capacity refusals are preflight evidence, not generated turns.
@@ -314,7 +341,7 @@ class TransformersEpisodeProvider:
                                      getattr(attempted, 'inference_latency_seconds', None), None,
                                      None, self._core.hardware.get('device'),
                                      self._core.hardware.get('dtype'), 'error', error.code,
-                                     error.diagnostic)
+                                     error.diagnostic, memory, max_new_tokens, self._execution_evidence)
                 self.turn_metrics.append(metric)
                 self._all_turns.append(metric)
             raise
@@ -324,15 +351,18 @@ class TransformersEpisodeProvider:
             if 'count' in locals():
                 metric = TurnMetrics(len(self.turn_metrics) + 1, count, None, None, None, None,
                     self._core.hardware.get('device'), self._core.hardware.get('dtype'),
-                    'error', 'generation_failure', self.last_failure.diagnostic)
+                    'error', 'generation_failure', self.last_failure.diagnostic, memory, max_new_tokens, self._execution_evidence)
                 self.turn_metrics.append(metric)
                 self._all_turns.append(metric)
             raise self.last_failure from None
+        finally:
+            # Tokenizer inputs remain on CPU, but release the cache on errors too.
+            if self._tokenizer is not None:
+                self._tokenizer.clear()
         self.turn_metrics.append(metric)
         self._all_turns.append(metric)
         # Clear only after consumption so identical successive turns are tokenized
         # afresh, while preflight + callback still share one preparation.
-        self._tokenizer.clear()
         return result.response
 
     def begin_episode(self, *, deadline=None):
@@ -392,4 +422,8 @@ class TransformersEpisodeProvider:
             'total_generation_latency_seconds': sum(t.inference_latency_seconds or 0 for t in self._all_turns),
             'successful_turns': sum(t.status == 'success' for t in self._all_turns),
             'failed_turns': sum(t.status == 'error' for t in self._all_turns),
+            **execution_metadata(self._core.model),
+            'attention_implementation_before': self.attention_implementation_before,
+            'generation_kwargs': {'max_new_tokens': 512, 'do_sample': False},
+            'last_forward': self._execution_evidence.copy(),
         }
