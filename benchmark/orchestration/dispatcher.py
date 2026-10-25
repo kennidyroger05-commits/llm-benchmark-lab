@@ -87,11 +87,13 @@ def _error(code):
     return {"ok": False, "error": {"code": code, "message": _MESSAGES[code]}}
 
 
-def dispatch_tool(tool_name, arguments, context: DispatchContext):
+def dispatch_tool(tool_name, arguments, context: DispatchContext, *, registry=None):
     """Return exactly one sanitized envelope; technical fields live in context.trace."""
     if not isinstance(context, DispatchContext) or not isinstance(context.trace, ToolTrace):
         raise TypeError("A DispatchContext with ToolTrace is required.")
-    known = isinstance(tool_name, str) and tool_name in TOOL_REGISTRY
+    # Trusted revision-specific routing only; model arguments cannot select it.
+    registry = TOOL_REGISTRY if registry is None else registry
+    known = isinstance(tool_name, str) and tool_name in registry
     completed = False
     infrastructure_failure = False
     origin = None
@@ -119,7 +121,7 @@ def dispatch_tool(tool_name, arguments, context: DispatchContext):
         envelope = _error("invalid_arguments")
     else:
         try:
-            function = TOOL_REGISTRY[tool_name]
+            function = registry[tool_name]
             # Each implementation gets only detached public arguments and its
             # own dependency. Pure tools cannot access the domain or backend.
             public_arguments = deepcopy(recorded_arguments)

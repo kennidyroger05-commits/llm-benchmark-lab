@@ -1,0 +1,4 @@
+-c constraints-phase2-v2.txt
+torch
+transformers
+accelerate

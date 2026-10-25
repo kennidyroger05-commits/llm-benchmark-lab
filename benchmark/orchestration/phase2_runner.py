@@ -55,7 +55,9 @@ def _write(path, value):
 
 
 def run_phase2(model_id, output_root, *, preflight_fn=run_preflight,
-               supervisor_factory=ProcessSupervisor, worker=official_worker):
+               supervisor_factory=ProcessSupervisor, worker=official_worker,
+               evaluate_fn=evaluate_episode, report_builder=build_report,
+               evaluation_backend=ScopedDockerBackend, frozen_path=FROZEN, protocol_version='phase2_v1'):
     """No resume. A fresh UUID reserves exclusive artifact names for this run.
 
     Timeout/worker failure ends this run: the loaded CUDA process is gone. Do
@@ -74,7 +76,7 @@ def run_phase2(model_id, output_root, *, preflight_fn=run_preflight,
     raw_path = root / 'results/raw/phase2' / slug(model_id) / ('benchmark_' + run_id + '.json')
     manifest_path = root / 'reports/phase2' / slug(model_id) / (run_id + '_manifest.json')
     eval_path = manifest_path.with_name(run_id + '_evaluation.json')
-    raw = {'phase': 'phase2', 'condition': 'tools', 'run_id': run_id, 'model_id': model_id,
+    raw = {'protocol_version': protocol_version, 'phase': 'phase2', 'condition': 'tools', 'run_id': run_id, 'model_id': model_id,
            'status': 'incomplete', 'tasks': [], 'preflight': preflight,
            'configuration': {'dtype': 'float16', 'device_map': 'auto', 'max_new_tokens': 512,
               'do_sample': False, 'temperature': None, 'seed': None, 'warmups': 2,
@@ -102,8 +104,8 @@ def run_phase2(model_id, output_root, *, preflight_fn=run_preflight,
                 raw['tasks'].append({'task_id': task['id'], **asdict(result)})
                 # Evaluation uses the same secure backend, in the coordinator,
                 # after the supervised episode has completed.
-                evaluations.append(evaluate_episode(task, result.episode,
-                                                    sandbox_backend=ScopedDockerBackend(run_id)))
+                evaluations.append(evaluate_fn(task, result.episode,
+                                                    sandbox_backend=evaluation_backend(run_id)))
                 _write(raw_path, raw)
             if len(raw['tasks']) == 10:
                 raw['status'] = 'complete'
@@ -127,7 +129,7 @@ def run_phase2(model_id, output_root, *, preflight_fn=run_preflight,
         if not any(r['task_id'] == task['id'] for r in raw['tasks']):
             raw['tasks'].append({'task_id': task['id'], 'episode': episode.to_dict(), 'turn_metrics': [],
                                  'context_checks': [], 'not_executed': reason == 'not_executed'})
-        evaluations.append(evaluate_episode(task, episode))
+        evaluations.append(evaluate_fn(task, episode))
     _write(raw_path, raw)
     environment = {'python': platform.python_version()}
     for package in ('torch', 'transformers', 'accelerate'):
@@ -136,12 +138,12 @@ def run_phase2(model_id, output_root, *, preflight_fn=run_preflight,
         except PackageNotFoundError:
             environment[package] = None
     manifest = {'environment_versions': environment, 'run_id': run_id, 'status': raw['status'], 'preflight': preflight,
-        'frozen_hashes': json.loads(FROZEN.read_text()),
+        'protocol_version': protocol_version, 'frozen_hashes': json.loads(Path(frozen_path).read_text()),
         'implementation_hashes': {str(p.relative_to(ROOT)): sha(p) for p in sorted(
             list((ROOT / 'benchmark').rglob('*.py')) + [ROOT / 'run_phase2.py'])},
         'runtime': metadata, 'raw_sha256': sha(raw_path)}
     _write(manifest_path, manifest)
-    report = build_report(evaluations, model_id=model_id, run_metadata={'run_id': run_id},
+    report = report_builder(evaluations, model_id=model_id, run_metadata={'run_id': run_id},
                           source_raw_path=raw_path)
     report['collection_status'] = raw['status']
     report['collection_failure'] = failure

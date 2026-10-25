@@ -1,8 +1,8 @@
 """Explicit environment preflight, Colab readiness check, or official collection."""
 import argparse
 import json
-from benchmark.orchestration.phase2_preflight import run_preflight
-from benchmark.orchestration.phase2_runner import run_phase2
+from benchmark.orchestration.phase2_preflight_v2 import run_preflight
+from benchmark.orchestration.phase2_runner_v2 import run_phase2
 from benchmark.providers.transformers_phase2 import OFFICIAL_MODELS
 
 

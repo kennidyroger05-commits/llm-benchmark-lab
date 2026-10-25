@@ -52,7 +52,7 @@ class TransformersEpisodeResult:
 
 def run_transformers_episode(task, provider: TransformersEpisodeProvider, *,
                              domain_session=None, sandbox_backend=None, public_catalog=None,
-                             run_id=None, attempt_id=None, deadline=None):
+                             run_id=None, attempt_id=None, deadline=None, episode_options=None):
     """One sequential task. Caller loads/warms once and owns domain/backend state.
 
     No model loading, warm-up, fixture reading, evaluation or persistence occurs
@@ -68,7 +68,8 @@ def run_transformers_episode(task, provider: TransformersEpisodeProvider, *,
         metadata['attempt_id'] = attempt_id
     episode = run_episode(task, provider, token_counter=provider.count_tokens,
                           domain_session=domain_session, sandbox_backend=sandbox_backend,
-                          public_catalog=public_catalog, limits=EpisodeLimits(), metadata=metadata)
+                          public_catalog=public_catalog, limits=EpisodeLimits(), metadata=metadata,
+                          **({} if episode_options is None else episode_options))
     failure = provider.last_failure
     if failure is not None and failure.code in {'episode_timeout', 'episode_cancelled'}:
         # Adapt a cooperative budget stop, without changing the frozen loop or

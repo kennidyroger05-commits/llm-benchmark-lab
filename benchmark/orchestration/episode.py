@@ -94,14 +94,14 @@ class EpisodeResult:
         return asdict(self)
 
 
-def _public_document(task, public_catalog):
+def _public_document(task, public_catalog, catalog_serializer=serialize_public_catalog):
     """Allowlist selection, never a copy/serialization of the task record."""
     if not isinstance(task, dict) or task.get("id") not in {f"T{i}" for i in range(1, 11)}:
         raise ValueError("A task ID from T1 to T10 is required.")
     key = "tools_prompt" if task["id"] in {"T5", "T6"} else "prompt"
     if not isinstance(task.get(key), str) or not task[key]:
         raise ValueError("Required public task prompt is missing.")
-    frozen = serialize_public_catalog()
+    frozen = catalog_serializer()
     supplied = frozen if public_catalog is None else public_catalog
     if isinstance(supplied, str):
         supplied = supplied.encode("utf-8")
@@ -123,6 +123,8 @@ def run_episode(
     limits: EpisodeLimits = EpisodeLimits(),
     metadata: dict | None = None,
     token_counter: Callable[[str], int] | None = None,
+    dispatcher: Callable | None = None,
+    catalog_serializer: Callable = serialize_public_catalog,
 ) -> EpisodeResult:
     """Run sequentially until final output or a classified terminal condition.
 
@@ -140,7 +142,8 @@ def run_episode(
             or not set(private_metadata) <= {"run_id", "model_id", "attempt_id"}
             or any(type(v) is not str for v in private_metadata.values())):
         raise ValueError("Invalid execution metadata.")
-    document = _public_document(task, public_catalog)
+    dispatcher = dispatch_tool if dispatcher is None else dispatcher
+    document = _public_document(task, public_catalog, catalog_serializer)
     result = EpisodeResult(full_history=document, metadata={
         **deepcopy(private_metadata), "task_id": task["id"],
         "phase": "phase2", "condition": "tools",
@@ -202,7 +205,7 @@ def run_episode(
         # reach this point. No ninth call can reach dispatch or change state.
         result.tool_calls_dispatched += 1
         try:
-            envelope = dispatch_tool(message.tool, message.arguments, context)
+            envelope = dispatcher(message.tool, message.arguments, context)
         except Exception:
             return finish("tool_infrastructure_failure", infrastructure=True,
                           error_code="execution_error")

@@ -1,0 +1,7 @@
+# Protocol V2 compatibility envelope; exact installed versions recorded per run.
+# Python 3.13 needs a newer Torch wheel than the original prescribed V1 environment.
+torch>=2.8,<3
+transformers>=4.56,<5
+accelerate>=1.10,<2
+huggingface-hub>=0.34,<1
+tokenizers>=0.22,<0.23

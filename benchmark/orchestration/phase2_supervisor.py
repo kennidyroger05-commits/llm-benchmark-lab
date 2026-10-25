@@ -52,7 +52,8 @@ class ProcessSupervisor:
     kill its process group, join, then remove only containers with our random
     ownership label. Cleanup failure is fatal, never followed by another task.
     """
-    def __init__(self, target, settings, directory, *, startup_seconds=1800):
+    def __init__(self, target, settings, directory, *, startup_seconds=1800, container_cleanup=True):
+        self.container_cleanup = container_cleanup
         self.owner = uuid.uuid4().hex
         self.directory = Path(directory)
         self.directory.mkdir(parents=True, exist_ok=True)
@@ -158,8 +159,8 @@ class ProcessSupervisor:
         self.process.join(timeout=10)
         if self.process.is_alive():
             raise RuntimeError('worker_cleanup_failed')
-        backend = DockerSandboxBackend()
-        if backend.docker:
+        backend = DockerSandboxBackend() if self.container_cleanup else None
+        if backend is not None and backend.docker:
             ids = backend._docker(['ps', '-aq', '--filter', 'label=phase2.owner=' + self.owner])
             if ids.returncode:
                 raise RuntimeError('container_cleanup_failed')
