@@ -8,6 +8,7 @@ import time
 import uuid
 
 from benchmark.tools.sandbox import DockerSandboxBackend
+from benchmark.providers.failure_diagnostics import failure_details
 
 
 class ScopedDockerBackend(DockerSandboxBackend):
@@ -23,6 +24,7 @@ class ScopedDockerBackend(DockerSandboxBackend):
 
 def _entry(connection, target, settings, directory, owner):
     os.setsid()
+    stage, command = 'worker_startup', None
     try:
         handler = target(settings, owner)
         connection.send('ready')
@@ -30,15 +32,18 @@ def _entry(connection, target, settings, directory, owner):
             command = connection.recv()
             if command is None:
                 break
+            stage = 'worker_task'
             result = handler(command)
             # No large pipe writes: parent waits on a tiny completion signal.
             path = Path(directory) / 'result.pickle'
+            stage = 'worker_serialization'
             with path.open('wb') as stream:
                 pickle.dump(result, stream)
             connection.send('done')
-    except BaseException:
+    except BaseException as error:
         try:
-            connection.send('worker_failure')
+            connection.send({'event': 'worker_failure', 'failure_details': failure_details(
+                error, stage=stage, task_id=f'T{command + 1}' if type(command) is int else None)})
         except Exception:
             pass
     finally:
@@ -63,9 +68,12 @@ class ProcessSupervisor:
             args=(child, target, settings, str(directory), self.owner))
         self.process.start()
         child.close()
-        if not parent.poll(startup_seconds) or parent.recv() != 'ready':
+        signal_value = parent.recv() if parent.poll(startup_seconds) else None
+        if signal_value != 'ready':
             self.close()
-            raise RuntimeError('worker_startup_failure')
+            error = RuntimeError('worker_startup_failure')
+            error.diagnostic = signal_value.get('failure_details') if isinstance(signal_value, dict) else None
+            raise error
 
     def execute(self, command, *, timeout=600):
         if not self.process.is_alive():
@@ -81,7 +89,8 @@ class ProcessSupervisor:
             signal_value = 'worker_failure'
         if signal_value != 'done':
             self.close()
-            return {'supervision': 'infrastructure_failure', 'technical_success': False}
+            return {'supervision': 'infrastructure_failure', 'technical_success': False,
+                    'failure_details': signal_value.get('failure_details') if isinstance(signal_value, dict) else None}
         # Trusted worker-created local pickle only, never model-supplied data.
         with (self.directory / 'result.pickle').open('rb') as stream:
             return {'supervision': 'completed', 'result': pickle.load(stream)}

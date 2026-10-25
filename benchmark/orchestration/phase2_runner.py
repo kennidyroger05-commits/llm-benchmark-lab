@@ -17,6 +17,7 @@ from benchmark.tools.domain_tools import DomainSession
 from benchmark.tools._sandbox_worker import json_bytes
 from .phase2_preflight import ROOT, FROZEN, run_preflight, sha, slug
 from .phase2_supervisor import ProcessSupervisor, ScopedDockerBackend
+from benchmark.providers.failure_diagnostics import failure_details
 
 
 def official_worker(settings, owner):
@@ -90,6 +91,7 @@ def run_phase2(model_id, output_root, *, preflight_fn=run_preflight,
     metadata = {}
     supervisor = None
     failure = None
+    diagnostic = None
     try:
         with tempfile.TemporaryDirectory(prefix='phase2-worker-') as directory:
             supervisor = supervisor_factory(worker, {'model_id': model_id, 'run_id': run_id,
@@ -98,6 +100,7 @@ def run_phase2(model_id, output_root, *, preflight_fn=run_preflight,
                 event = supervisor.execute(index, timeout=600)
                 if event['supervision'] != 'completed':
                     failure = event['supervision']
+                    diagnostic = event.get('failure_details')
                     break
                 result = event['result']
                 metadata = result.run_metadata
@@ -109,14 +112,16 @@ def run_phase2(model_id, output_root, *, preflight_fn=run_preflight,
                 _write(raw_path, raw)
             if len(raw['tasks']) == 10:
                 raw['status'] = 'complete'
-    except Exception:
+    except Exception as error:
         failure = 'infrastructure_failure'
+        diagnostic = failure_details(error, stage='runner')
     finally:
         if supervisor is not None:
             try:
                 supervisor.close()
-            except Exception:
+            except Exception as error:
                 failure = 'cleanup_failure'
+                diagnostic = failure_details(error, stage='worker_cleanup')
     if failure:
         raw['status'] = 'incomplete'
         raw['failure'] = failure
@@ -126,10 +131,20 @@ def run_phase2(model_id, output_root, *, preflight_fn=run_preflight,
         reason = ('timeout' if failure == 'timeout' else 'executor_error') if missing_index == 0 and failure else 'not_executed'
         episode = EpisodeResult(termination_reason=reason, infrastructure_failure=reason != 'timeout',
                     metadata={'task_id': task['id'], 'model_id': model_id, 'run_id': run_id})
+        if missing_index == 0 and diagnostic is not None:
+            episode.failure_details = diagnostic
         if not any(r['task_id'] == task['id'] for r in raw['tasks']):
             raw['tasks'].append({'task_id': task['id'], 'episode': episode.to_dict(), 'turn_metrics': [],
                                  'context_checks': [], 'not_executed': reason == 'not_executed'})
         evaluations.append(evaluate_fn(task, episode))
+    if protocol_version == 'phase2_v2':
+        # Preserve status compatibility: complete means all ten episodes visited,
+        # not that model execution succeeded or results can be published.
+        raw['collection_status'] = raw['status']
+        from benchmark.evaluation.phase2_v2 import collection_valid
+        raw['experimental_valid'] = collection_valid(evaluations, raw['status'])
+        if diagnostic is not None:
+            raw['failure_details'] = diagnostic
     _write(raw_path, raw)
     environment = {'python': platform.python_version()}
     for package in ('torch', 'transformers', 'accelerate'):
@@ -142,9 +157,12 @@ def run_phase2(model_id, output_root, *, preflight_fn=run_preflight,
         'implementation_hashes': {str(p.relative_to(ROOT)): sha(p) for p in sorted(
             list((ROOT / 'benchmark').rglob('*.py')) + [ROOT / 'run_phase2.py'])},
         'runtime': metadata, 'raw_sha256': sha(raw_path)}
+    if protocol_version == 'phase2_v2':
+        manifest.update(collection_status=raw['collection_status'], experimental_valid=raw['experimental_valid'])
     _write(manifest_path, manifest)
     report = report_builder(evaluations, model_id=model_id, run_metadata={'run_id': run_id},
-                          source_raw_path=raw_path)
+                          source_raw_path=raw_path, **({'collection_status': raw['status'],
+                          'collection_failure': failure} if protocol_version == 'phase2_v2' else {}))
     report['collection_status'] = raw['status']
     report['collection_failure'] = failure
     from benchmark.orchestration.tool_trace import finite_json_bytes

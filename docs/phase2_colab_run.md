@@ -33,3 +33,26 @@ Smoke sem modelo nem Docker:
 `python -m unittest discover -s tests -p test_restricted_python_v2.py -v`.
 A suíte completa preserva também testes históricos Docker V1; em Colab sem Docker
 eles são marcados explicitamente como V1/skip, não contados como PASS V2.
+
+## Smoke real do provider (não experimental)
+
+Após instalar as dependências e configurar a autenticação, execute explicitamente:
+
+```bash
+python run_phase2.py --mode provider-smoke --model meta-llama/Llama-3.2-1B-Instruct
+```
+
+Esse modo exige o preflight V2 normal com todos os checks PASS antes de carregar
+pesos, usando a mesma revisão, provider, tokenização e geração da coleta. Faz
+**uma única geração sintética**, sem warm-ups/retries, ferramentas ou episódios.
+Não carrega tarefas/prompts do Benchmark V1; o preflight lê seus bytes apenas
+para verificar integridade. Não grava RAW, avaliação ou resultado experimental.
+O comando imprime um JSON diagnóstico, identifica `experimental_result=false`
+e retorna código 0 (PASS) ou 1 (FAIL); erros e preview são sanitizados.
+Texto não vazio basta para PASS, sem avaliar semanticamente `SMOKE_OK`.
+
+Se já houver um run no diretório, mantenha-o e forneça `--output-root` apontando
+para um diretório novo/vazio: a checagem normal de conflitos continua bloqueante.
+Esse diretório serve somente às checagens de escrita/conflito do preflight.
+O smoke não substitui a autorização de coleta nem altera os dois warm-ups
+obrigatórios do run oficial. Não execute esse modo durante verificações sem modelo.

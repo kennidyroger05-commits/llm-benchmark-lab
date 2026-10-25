@@ -15,8 +15,25 @@ from benchmark.tools.restricted_python import RestrictedASTBackend
 from benchmark.tools.sandbox import SandboxError
 from benchmark.orchestration.tool_trace import finite_json_bytes
 import hashlib
+import json
+from pathlib import Path
 
 VERSION = 'phase2-evaluation-v2'
+
+
+def collection_valid(evaluations, status):
+    """Operational validity only; ordinary protocol/content/budget stops survive.
+
+    Context refusals and correctly enforced timeouts are not infrastructure
+    failures. Incomplete collection still blocks independently of their metrics.
+    """
+    rows = list(evaluations)
+    return (status == 'complete' and
+            {r['task_id'] for r in rows} == {f'T{i}' for i in range(1, 11)} and
+            not any(r.get('infrastructure_failure') or
+                    (r.get('technical_success') is False and
+                     r.get('termination_reason') not in {'context_limit_exceeded', 'timeout'})
+                    for r in rows))
 
 
 def evaluate_episode(task, episode, *, sandbox_backend=None):
@@ -67,14 +84,38 @@ def evaluate_episode(task, episode, *, sandbox_backend=None):
     return result
 
 
-def build_report(evaluations, **options):
+def build_report(evaluations, *, collection_status=None, collection_failure=None, **options):
+    """Completion means ten visits; publication also requires intact collection.
+
+    Wrong answers/invalid model protocol remain legitimate observations. Missing
+    episodes, provider/infra failures and pending isolated grading do not. This
+    operational guard does not modify any functional correctness metric.
+    """
     rows = list(evaluations)
     report = v1_report(rows, **options)
     from benchmark.tools.catalog_v2 import public_catalog_sha256
+    complete_ids = {r['task_id'] for r in rows} == {f'T{i}' for i in range(1, 11)}
+    source = options.get('source_raw_path')
+    raw = json.loads(Path(source).read_text()) if source is not None else {}
+    statuses = [s for s in (collection_status, raw.get('status'), raw.get('collection_status')) if s is not None]
+    complete = complete_ids and all(s == 'complete' for s in statuses)
+    pending = any(r.get('evaluation_pending') or
+                  r.get('evaluation_error') == 'pending_isolated_code_evaluation' for r in rows)
+    infrastructure_failed = not collection_valid(rows, 'complete')
+    # Cross-check RAW when supplied rather than trusting just an evaluation flag.
+    infrastructure_failed |= any(record.get('episode', {}).get('infrastructure_failure') or
+        (record.get('episode', {}).get('technical_success') is False and
+         record.get('episode', {}).get('termination_reason') not in {'context_limit_exceeded', 'timeout'})
+        for record in raw.get('tasks', []))
+    collection_failed = bool(collection_failure or raw.get('failure'))
+    experimental_valid = complete and not infrastructure_failed and not collection_failed
     report.update(evaluation_version=VERSION, protocol_version='phase2_v2',
                   sandbox_mode='restricted_ast_interpreter', catalog_hash=public_catalog_sha256(),
-                  evaluation_complete=not any(r.get('evaluation_pending') for r in rows),
-                  publication_ready=not any(r.get('evaluation_pending') for r in rows))
+                  collection_status=collection_status or raw.get('status') or ('complete' if complete_ids else 'incomplete'),
+                  collection_failure=collection_failure or raw.get('failure'),
+                  experimental_valid=experimental_valid,
+                  evaluation_complete=not pending,
+                  publication_ready=experimental_valid and not pending)
     for source, projected in zip(sorted(rows, key=lambda r: int(r['task_id'][1:])), report['task_evaluations']):
         projected['evaluation_pending'] = source.get('evaluation_pending', False)
     report.pop('structural_hash')

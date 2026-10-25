@@ -79,5 +79,9 @@ def run_transformers_episode(task, provider: TransformersEpisodeProvider, *,
         episode.infrastructure_failure = False
         episode.technical_success = (episode.model_outputs_total > 0
                                      and failure.scope == 'between_operations')
-    return TransformersEpisodeResult(episode, deepcopy(provider.turn_metrics),
+    metrics = deepcopy(provider.turn_metrics)
+    for metric in metrics:
+        if metric.failure is not None:
+            metric.failure.update(task_id=task['id'], turn_index=metric.turn_index)
+    return TransformersEpisodeResult(episode, metrics,
                                      deepcopy(provider.context_checks), provider.run_metadata())

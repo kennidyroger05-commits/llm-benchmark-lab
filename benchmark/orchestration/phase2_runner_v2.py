@@ -15,17 +15,28 @@ class V2Supervisor(ProcessSupervisor):
         super().__init__(*args, container_cleanup=False, **kwargs)
 
 
-def official_worker(settings, owner):
+def load_provider(model_id, revision):
+    """Shared explicit loading for collection and the non-benchmark smoke.
+
+    Pin tokenizer and weights to the preflight revision. Loading itself never
+    generates text, reads tasks, creates sessions or performs warm-ups.
+    """
     from huggingface_hub import snapshot_download
-    snapshot = snapshot_download(settings['model_id'], revision=settings['revision'], allow_patterns=[
+    snapshot = snapshot_download(model_id, revision=revision, allow_patterns=[
         '*.json', '*.safetensors', 'tokenizer.model', '*.tiktoken'])
-    provider = TransformersEpisodeProvider(settings['model_id'])
+    provider = TransformersEpisodeProvider(model_id)
     provider._core.model_id = snapshot
     try:
         provider.load_tokenizer(); provider.load_model()
     finally:
-        provider._core.model_id = settings['model_id']
-    provider.validate_ready(); provider.warm_up()
+        provider._core.model_id = model_id
+    provider.validate_ready()
+    return provider
+
+
+def official_worker(settings, owner):
+    provider = load_provider(settings['model_id'], settings['revision'])
+    provider.warm_up()
     tasks = json.loads((ROOT / 'prompts/benchmark_v1.json').read_text())
     backend = RestrictedASTBackend()
     def handle(index):

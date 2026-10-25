@@ -14,6 +14,7 @@ import platform
 from types import MappingProxyType, SimpleNamespace
 
 from .transformers_provider import TransformersProvider
+from .failure_diagnostics import failure_details
 
 OFFICIAL_MODELS = (
     'meta-llama/Llama-3.2-1B-Instruct',
@@ -30,8 +31,9 @@ WARMUP_PROMPTS = ('Responda apenas: pronto.', 'Quanto é 2 + 2? Responda apenas 
 
 class EpisodeProviderError(RuntimeError):
     """Stable, sanitized provider diagnostic; never contains a loader exception."""
-    def __init__(self, code, scope='provider'):
+    def __init__(self, code, scope='provider', *, diagnostic=None):
         self.code, self.scope = code, scope
+        self.diagnostic = diagnostic
         super().__init__('Phase 2 provider: ' + code)
 
 
@@ -58,12 +60,31 @@ class TurnMetrics:
     dtype: str | None
     status: str
     error_code: str | None = None
+    failure: dict | None = None
+
+
+class _PreparedTensor:
+    """Observe placement errors before the Phase 1 core converts them to text."""
+    def __init__(self, tensor, observe):
+        self.tensor, self.observe = tensor, observe
+
+    @property
+    def shape(self):
+        return self.tensor.shape
+
+    def to(self, device):
+        try:
+            return self.tensor.to(device)
+        except Exception as error:
+            self.observe(error, 'input_placement')
+            raise
 
 
 class _PreparedTokenizer:
     """A facade, not a second tokenizer/template. Owns one detached turn cache."""
-    def __init__(self, tokenizer):
+    def __init__(self, tokenizer, observe):
         self.raw = tokenizer
+        self.observe = observe
         self.clear()
 
     @property
@@ -90,10 +111,14 @@ class _PreparedTokenizer:
     def __call__(self, text, **options):
         if text != self.text or options != {'return_tensors': 'pt', 'add_special_tokens': False}:
             raise EpisodeProviderError('prepared_input_mismatch')
-        return dict(self.inputs)
+        return {key: _PreparedTensor(value, self.observe) for key, value in self.inputs.items()}
 
     def decode(self, *args, **kwargs):
-        return self.raw.decode(*args, **kwargs)
+        try:
+            return self.raw.decode(*args, **kwargs)
+        except Exception as error:
+            self.observe(error, 'decode')
+            raise
 
 
 class _ExecutionModel:
@@ -103,15 +128,22 @@ class _ExecutionModel:
     CUDA. This proxy changes neither weights nor hooks, and never guesses a CPU
     fallback. The real model still performs generation and device-map dispatch.
     """
-    def __init__(self, model, device):
+    def __init__(self, model, device, observe):
         self.raw, self.device = model, device
+        self.observe = observe
 
     def get_input_embeddings(self):
         weight = self.raw.get_input_embeddings().weight
         return SimpleNamespace(weight=SimpleNamespace(device=self.device, dtype=weight.dtype))
 
     def generate(self, **options):
-        return self.raw.generate(**options)
+        try:
+            return self.raw.generate(**options)
+        except Exception as error:
+            # The unchanged Phase 1 core returns only str(error). Preserve its
+            # type and stage here, before that conversion, without retrying.
+            self.observe(error, 'model_generate')
+            raise
 
 
 class TransformersEpisodeProvider:
@@ -129,16 +161,18 @@ class TransformersEpisodeProvider:
         self.context_checks = []
         self._all_turns = []
         self.last_failure = None
+        self._generation_failure = None
         self.deadline = None
         self.warmup_completed = False
 
     def load_tokenizer(self):
         try:
             raw = self._core.load_tokenizer()
-            self._tokenizer = _PreparedTokenizer(raw)
+            self._tokenizer = _PreparedTokenizer(raw, self._observe_failure)
             self._core.tokenizer = self._tokenizer
-        except Exception:
-            raise EpisodeProviderError('tokenizer_load_failure') from None
+        except Exception as error:
+            raise EpisodeProviderError('tokenizer_load_failure',
+                diagnostic=failure_details(error, stage='tokenizer_load')) from None
         return raw
 
     def load_model(self):
@@ -147,14 +181,15 @@ class TransformersEpisodeProvider:
         self._core.torch_dtype = torch.float16
         try:
             return self._core.load_model()
-        except Exception:
-            raise EpisodeProviderError('model_load_failure') from None
+        except Exception as error:
+            raise EpisodeProviderError('model_load_failure',
+                diagnostic=failure_details(error, stage='model_load')) from None
 
     def _ready_tokenizer(self):
         if self._core.model is None or self._core.tokenizer is None:
             raise EpisodeProviderError('not_loaded')
         if self._tokenizer is None:
-            self._tokenizer = _PreparedTokenizer(self._core.tokenizer)
+            self._tokenizer = _PreparedTokenizer(self._core.tokenizer, self._observe_failure)
             self._core.tokenizer = self._tokenizer
         if not self._tokenizer.chat_template:
             raise EpisodeProviderError('chat_template_unavailable')
@@ -203,9 +238,13 @@ class TransformersEpisodeProvider:
         except EpisodeProviderError as error:
             self.last_failure = error
             raise
-        except Exception:
-            self.last_failure = EpisodeProviderError('tokenization_failure', 'preflight')
+        except Exception as error:
+            self.last_failure = EpisodeProviderError('tokenization_failure', 'preflight',
+                diagnostic=failure_details(error, stage='tokenization'))
             raise self.last_failure from None
+
+    def _observe_failure(self, error, stage):
+        self._generation_failure = failure_details(error, stage=stage)
 
     def _input_device(self):
         model = self._core.model
@@ -233,7 +272,7 @@ class TransformersEpisodeProvider:
     @contextmanager
     def _execution_model(self):
         original = self._core.model
-        self._core.model = _ExecutionModel(original, self._input_device())
+        self._core.model = _ExecutionModel(original, self._input_device(), self._observe_failure)
         try:
             yield
         finally:
@@ -241,6 +280,7 @@ class TransformersEpisodeProvider:
 
     def __call__(self, document):
         """Callback compatible with run_episode; never parses or repairs output."""
+        self._generation_failure = None
         try:
             count = self.count_tokens(document)
             if count > INPUT_TOKEN_LIMIT:
@@ -251,7 +291,14 @@ class TransformersEpisodeProvider:
                 self._core.hardware = self._core._collect_hardware_metadata()
                 result = self._core.generate(document, **GENERATION_OPTIONS)
             if result.status != 'success':
-                raise EpisodeProviderError('generation_failure')
+                diagnostic = self._generation_failure
+                if diagnostic is None:
+                    # A custom core can return an error without raising one;
+                    # do not invent the original exception's class in that case.
+                    diagnostic = failure_details(RuntimeError(result.error or 'Provider returned an error.'),
+                                                 stage='provider_generate')
+                    diagnostic['exception_type'] = 'ProviderResultError'
+                raise EpisodeProviderError('generation_failure', diagnostic=diagnostic)
             # A future runner must not dispatch actions after an expired generation.
             self._check_deadline('generation')
             metric = TurnMetrics(len(self.turn_metrics) + 1, count, result.output_tokens,
@@ -266,12 +313,20 @@ class TransformersEpisodeProvider:
                                      getattr(attempted, 'output_tokens', None),
                                      getattr(attempted, 'inference_latency_seconds', None), None,
                                      None, self._core.hardware.get('device'),
-                                     self._core.hardware.get('dtype'), 'error', error.code)
+                                     self._core.hardware.get('dtype'), 'error', error.code,
+                                     error.diagnostic)
                 self.turn_metrics.append(metric)
                 self._all_turns.append(metric)
             raise
-        except Exception:
-            self.last_failure = EpisodeProviderError('generation_failure')
+        except Exception as error:
+            self.last_failure = EpisodeProviderError('generation_failure',
+                diagnostic=failure_details(error, stage='provider_generate'))
+            if 'count' in locals():
+                metric = TurnMetrics(len(self.turn_metrics) + 1, count, None, None, None, None,
+                    self._core.hardware.get('device'), self._core.hardware.get('dtype'),
+                    'error', 'generation_failure', self.last_failure.diagnostic)
+                self.turn_metrics.append(metric)
+                self._all_turns.append(metric)
             raise self.last_failure from None
         self.turn_metrics.append(metric)
         self._all_turns.append(metric)

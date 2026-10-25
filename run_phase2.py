@@ -1,17 +1,22 @@
-"""Explicit environment preflight, Colab readiness check, or official collection."""
+"""Explicit preflight, non-benchmark provider smoke, or official collection."""
 import argparse
 import json
 from benchmark.orchestration.phase2_preflight_v2 import run_preflight
 from benchmark.orchestration.phase2_runner_v2 import run_phase2
 from benchmark.providers.transformers_phase2 import OFFICIAL_MODELS
+from benchmark.orchestration.provider_smoke import run_provider_smoke
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--model', choices=OFFICIAL_MODELS, required=True)
     parser.add_argument('--output-root', default='.')
-    parser.add_argument('--mode', choices=('environment', 'preflight', 'run'), default='environment')
+    parser.add_argument('--mode', choices=('environment', 'preflight', 'provider-smoke', 'run'), default='environment')
     args = parser.parse_args()
+    if args.mode == 'provider-smoke':
+        result = run_provider_smoke(args.model, args.output_root)
+        print(json.dumps(result, ensure_ascii=False, indent=2, allow_nan=False))
+        return 0 if result['status'] == 'PASS' else 1
     if args.mode != 'run':
         result = run_preflight(args.model, args.output_root, inspect_model=args.mode == 'preflight')
         print(json.dumps(result, ensure_ascii=False, indent=2))

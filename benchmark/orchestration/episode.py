@@ -23,6 +23,7 @@ from benchmark.tools.sandbox import SandboxBackend
 from benchmark.tools._sandbox_worker import json_bytes
 from .dispatcher import DispatchContext, dispatch_tool
 from .protocol import FinalAnswer, ProtocolError, parse_model_message
+from benchmark.providers.failure_diagnostics import failure_details
 
 
 # Verbatim operational instruction frozen in phase2_protocol.md, section 4.1.
@@ -88,6 +89,7 @@ class EpisodeResult:
     context_token_counts: list[int] = field(default_factory=list)
     token_count_validated: bool = False
     metadata: dict = field(default_factory=dict)
+    failure_details: dict | None = None
 
     def to_dict(self):
         """Detached structural snapshot; exact Decimal answers retain their type."""
@@ -172,7 +174,9 @@ def run_episode(
                 result.token_count_validated = True
                 if count > limits.input_token_limit:
                     return finish("context_limit_exceeded", error_code="context_limit")
-        except Exception:
+        except Exception as error:
+            result.failure_details = failure_details(error, stage='context_preflight',
+                task_id=task['id'], turn_index=result.model_outputs_total + 1)
             return finish("context_preflight_failure", infrastructure=True,
                           error_code="execution_error")
 
@@ -181,8 +185,10 @@ def run_episode(
             raw = model_callback(serialized)
             if not isinstance(raw, str):
                 raise TypeError("Callback must return raw model text.")
-        except Exception:
-            # Exception messages may contain tokens or paths; never retain them.
+        except Exception as error:
+            # Retain only a sanitized projection; it never enters model history.
+            result.failure_details = failure_details(error, stage='model_callback',
+                task_id=task['id'], turn_index=result.model_outputs_total + 1)
             return finish("model_failure", infrastructure=True, error_code="execution_error")
         result.model_outputs_total += 1
         result.model_messages.append(raw)
